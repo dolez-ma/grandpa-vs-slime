@@ -26,7 +26,7 @@ gameState.load.prototype = {
         game.load.image('background', 'assets/img/background3.png');
         
         // Hero
-        game.load.spritesheet('oldman','assets/img/oldman.png', 527, 413, 6);
+        game.load.spritesheet('oldman','assets/img/oldman2.png', 527, 413, 6);
         
         // Colonne de slime
         game.load.image('slime1', 'assets/img/slime1.png');
@@ -45,6 +45,9 @@ gameState.main.prototype = {
     create: function () {
         // initialisation et intégration des ressources dans le canvas
         
+        // Physique du jeu
+        game.physics.startSystem(Phaser.Physics.ARCADE);
+        
         // On fait en sorte que le jeu se redimensionne selon la taille de l'écran (Pour les PC)
         game.scale.scaleMode = Phaser.ScaleManager.SHOW_ALL;
         game.scale.parentIsWindow = true;
@@ -62,20 +65,33 @@ gameState.main.prototype = {
         // Construction de la colonne
         this.HEIGHT_SLIME_COLUMN = 243;
         this.constructSlimeColumn();
-        this.canCut = true;
+        this.canKill = true;
         
         // Création du hero
         this.oldman = game.add.sprite(0, 1070, 'oldman');
-        this.oldman.animations.add('idle', [0,1,2,3]);
+        this.oldman.animations.add('idle', [0,1,0,0,0,0,0]);
         this.oldman.animations.add('hit', [4,5,4]);
         this.oldman.animations.play('idle', 3, true);
         // Position du hero
         this.oldmanPosition = 'left';
         
+        // Au click, on appelle la fonction "listener()"
+        game.input.onDown.add(this.listener, this);
         
+        // Score
+        this.currentScore = 0;
     },
     update: function () {
         // Animations
+        // Si la partie n'est pas fini
+        if(!GAME_OVER){
+            // Detection des touches gauche et droite
+            if(game.input.keyboard.isDown(Phaser.Keyboard.LEFT)){
+                this.listener('left');
+            } else if(game.input.keyboard.isDown(Phaser.Keyboard.RIGHT)){
+                this.listener('right');
+            }
+        }
     },
     
     constructSlimeColumn: function () {
@@ -95,7 +111,7 @@ gameState.main.prototype = {
         var slimes = ['slime1', 'slime2'];
         var slimeWithWeapon = ['slime-weapon1', 'slime-weapon2'];
         // Si le dernier slime du groupe n'a pas d'arme
-        if(slimeWithWeapon.indexOf(this.slimeColumn.getAt(this.slimeColumn.length - 1).key) == -1){
+        if(slimeWithWeapon.indexOf(this.slimeColumn.getAt(this.slimeColumn.length - 1).key) === -1){
             // 1 chance sur 4 de placer un slime sans arme
             if(Math.random() * 4 <= 1){
                 this.slimeColumn.create(
@@ -118,6 +134,105 @@ gameState.main.prototype = {
                 slimes[Math.floor(Math.random() * 2)]
             );
         }
+    },
+    
+    listener: function (action) {
+        if(this.canKill){
+            // La premiere action de l'utilisateur déclenche le début de la partie
+            if(!GAME_START){
+                GAME_START = true;
+            }
+            
+            // On vérifie si l'action du joueur est un clic
+            var isClick = action instanceof Phaser.Pointer;
+            
+            // Si la touche directionnelle gauche est pressée ou s'il y a un click dans la moitié gauche du jeu
+            if(action === 'left' || (isClick && game.input.activePointer.x <= game.width / 2)) {
+                // On remet le personnage a gauche de l'arbre et dans le sens de départ
+                this.oldman.anchor.setTo(0, 0);
+                this.oldman.scale.x = 1;
+                this.oldman.x = 0;
+                this.oldmanPosition = 'left';
+            }
+            // Si la touche directionnelle droite est pressée ou s'il y a un click dans la moitié droite du jeu
+            else {
+                // On inverse le sens du personnage pour le mettre a droite
+                this.oldman.anchor.setTo(1, 0);
+                this.oldman.scale.x = -1;
+                this.oldman.x = game.width - Math.abs(this.oldman.width);
+                this.oldmanPosition = 'right';
+            }
+            
+            // On stop l'animation "idle"
+            this.oldman.animations.stop('idle', true);
+            // On démarre l'animation "hit", une seule fois et avec 3 images par secondes
+            var animationKill = this.oldman.animations.play('hit', 15);
+            // Une fois l'animation finie, on reprend l'animation de respiration
+            animationKill.onComplete.add(function () {
+                this.oldman.animations.play('idle', 3, true);
+            }, this);
+            
+            this.killSlime();
+        }
+    },
+    
+    killSlime: function () {
+        // On incrémente le score
+        this.increaseScore();
+        
+        // On ajoute un slime simple ou un slime armé
+        this.addSlime();
+        
+        // on crée une copie du slime qui doit être tué
+        var killedSlime = game.add.sprite(37, 1151, this.slimeColumn.getAt(0).key);
+        // Et on supprime le slime
+        this.slimeColumn.remove(this.slimeColumn.getAt(0));
+        // On active le systeme de physique sur ce sprite
+        game.physics.enable(killedSlime, Phaser.Physics.ARCADE);
+        // On déplace le centre de gravité du sprite en son milieu
+        killedSlime.anchor.setTo(0.5, 0.5);
+        killedSlime.x += killedSlime.width / 2;
+        killedSlime.y += killedSlime.height / 2;
+        
+        var angle = 0;
+        // Si le personnage se trouve à gauche, on envoi le slime a droite
+        if(this.oldmanPosition === 'left'){
+            killedSlime.body.velocity.x = 1300;
+            angle = -400;
+        }
+        else {
+            killedSlime.body.velocity.x = -1300;
+            angle = 400;
+        }
+        
+        // Permet de creer un effet de gravité
+        // Dans un premier temps, le slime est propulsé en l'air
+        killedSlime.body.velocity.y = -800;
+        // Et dans un second temps, il retombe
+        killedSlime.body.gravity.y = 2000;
+        
+        // On ajoute une animation de rotation sur le slime tué
+        game.add.tween(killedSlime).to({angle: killedSlime.angle + angle}, 1000, Phaser.Easing.Cubic.Out, true);
+        
+        // On empèche un nouveau kill
+        this.canKill = false;
+        
+        var self = this;
+        
+        // Pour chaque slime encore présent, on ajoute une animation de chute
+        // pour boucher le trou laissé par le slime tué
+        this.slimeColumn.forEach(function (slime) {
+            var tween = game.add.tween(slime).to({y: slime.y + self.HEIGHT_SLIME_COLUMN}, 100, Phaser.Easing.Bounce.Out, true);
+            tween.onComplete.add(function () {
+                // Une fois que l'animation est finie, on redonne la possibilité de tué au héro
+                self.canKill = true;
+            }, self);
+        })
+        
+    },
+    
+    increaseScore: function () {
+        this.currentScore++;
     }
 };
 

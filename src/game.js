@@ -34,6 +34,9 @@ gameState.load.prototype = {
         game.load.image('slime-weapon1', 'assets/img/slime-weapon1.png');
         game.load.image('slime-weapon2', 'assets/img/slime-weapon2.png');
         game.load.image('slime-base', 'assets/img/slime-base.png');
+        
+        // Chiffre pour le score
+        game.load.atlas('numbers', 'assets/img/numbers.png', 'assets/data/numbers.json');
     },
     create: function () {
         game.state.start('main');
@@ -80,6 +83,15 @@ gameState.main.prototype = {
         
         // Score
         this.currentScore = 0;
+        // On crée le sprite du score
+        var spriteScoreNumber = game.add.sprite(game.width / 2, 440, 'numbers');
+        // On affiche le score à 0 en ajoutant le JSON "number" aux animations de spriteScoreNumber
+        spriteScoreNumber.animations.add('number');
+        spriteScoreNumber.animations.frame = this.currentScore;
+        // On centre le score
+        spriteScoreNumber.x -= spriteScoreNumber.width / 2;
+        this.spritesScoreNumbers = [];
+        this.spritesScoreNumbers.push(spriteScoreNumber);
     },
     update: function () {
         // Animations
@@ -233,6 +245,51 @@ gameState.main.prototype = {
     
     increaseScore: function () {
         this.currentScore++;
+        
+        // On kill chaque sprite qui compose le score
+        for(var j = 0; j < this.spritesScoreNumbers.length; j++){
+            this.spritesScoreNumbers[j].kill();
+        }
+        this.spritesScoreNumbers = [];
+        
+        this.spritesScoreNumbers = this.createSpritesNumbers(this.currentScore, 'numbers', 440, 1);
+    },
+    
+    createSpritesNumbers: function (number, imgRef, posY, alpha) {
+        // On découpe le nombre en chiffre individuel
+        var digits = number.toString().split('');
+        var widthNumbers = 0;
+        
+        var arraySpritesNumbers = [];
+        
+        // On met en forme le nombre avec les sprites
+        for(var i = 0; i < digits.length; i++){
+            var spaceBetweenNumbers = 0;
+            if(i > 0){
+                spaceBetweenNumbers = 5;
+            }
+            
+            var spriteNumber = game.add.sprite(widthNumbers + spaceBetweenNumbers, posY, imgRef);
+            spriteNumber.alpha = alpha;
+            
+            // On ajoute le JSON des nombres dans l'animation de "spriteNumber"
+            spriteNumber.animations.add('number');
+            // On selectionne la frame n° "digits[i]" dans le JSON
+            spriteNumber.animations.frame = +digits[i];
+            arraySpritesNumbers.push(spriteNumber);
+            // On calcul la width totale du sprite du score
+            widthNumbers += spriteNumber.width + spaceBetweenNumbers;
+        }
+        
+        // On ajoute les sprites du score dans le groupe numbersGroup afin de centrer le tout
+        var numbersGroup = game.add.group();
+        for(var i = 0; i < arraySpritesNumbers.length; i++){
+            numbersGroup.add(arraySpritesNumbers[i]);
+        }
+        // On centre horizontalement
+        numbersGroup.x = game.width / 2 - numbersGroup.width / 2;
+        
+        return arraySpritesNumbers;
     }
 };
 

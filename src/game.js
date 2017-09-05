@@ -1,20 +1,19 @@
-
 // Permet de savoir quand le jeu commence et quand il s'arrete
-var GAME_START = false;
-var GAME_OVER  = false;
+let GAME_START = false;
+let GAME_OVER  = false;
 
 // Taille du jeu
 const width  = 1080;
 const height = 1775;
 
 // Phaser
-var game = new Phaser.Game(width, height, Phaser.AUTO, 'game');
+let game = new Phaser.Game(width, height, Phaser.AUTO, 'game');
 
 // On rend le background transparent
 game.transparent = true;
 
 // On déclare un objet qui contiendra les états load et main
-var gameState = {};
+let gameState = {};
 gameState.load = function () {};
 gameState.main = function () {};
 
@@ -84,7 +83,7 @@ gameState.main.prototype = {
         // Score
         this.currentScore = 0;
         // On crée le sprite du score
-        var spriteScoreNumber = game.add.sprite(game.width / 2, 440, 'numbers');
+        let spriteScoreNumber = game.add.sprite(game.width / 2, 440, 'numbers');
         // On affiche le score à 0 en ajoutant le JSON "number" aux animations de spriteScoreNumber
         spriteScoreNumber.animations.add('number');
         spriteScoreNumber.animations.frame = this.currentScore;
@@ -114,14 +113,14 @@ gameState.main.prototype = {
         this.slimeColumn.create(37, 1151 - this.HEIGHT_SLIME_COLUMN, 'slime2');
         
         // On construit le reste de la colonne
-        for(var i = 0; i < 4; i++){
+        for(let i = 0; i < 4; i++){
             this.addSlime();
         }
     },
     
     addSlime: function () {
-        var slimes = ['slime1', 'slime2'];
-        var slimeWithWeapon = ['slime-weapon1', 'slime-weapon2'];
+        let slimes = ['slime1', 'slime2'];
+        let slimeWithWeapon = ['slime-weapon1', 'slime-weapon2'];
         // Si le dernier slime du groupe n'a pas d'arme
         if(slimeWithWeapon.indexOf(this.slimeColumn.getAt(this.slimeColumn.length - 1).key) === -1){
             // 1 chance sur 4 de placer un slime sans arme
@@ -156,7 +155,7 @@ gameState.main.prototype = {
             }
             
             // On vérifie si l'action du joueur est un clic
-            var isClick = action instanceof Phaser.Pointer;
+            let isClick = action instanceof Phaser.Pointer;
             
             // Si la touche directionnelle gauche est pressée ou s'il y a un click dans la moitié gauche du jeu
             if(action === 'left' || (isClick && game.input.activePointer.x <= game.width / 2)) {
@@ -178,7 +177,7 @@ gameState.main.prototype = {
             // On stop l'animation "idle"
             this.oldman.animations.stop('idle', true);
             // On démarre l'animation "hit", une seule fois et avec 3 images par secondes
-            var animationKill = this.oldman.animations.play('hit', 15);
+            let animationKill = this.oldman.animations.play('hit', 15);
             // Une fois l'animation finie, on reprend l'animation de respiration
             animationKill.onComplete.add(function () {
                 this.oldman.animations.play('idle', 3, true);
@@ -196,7 +195,7 @@ gameState.main.prototype = {
         this.addSlime();
         
         // on crée une copie du slime qui doit être tué
-        var killedSlime = game.add.sprite(37, 1151, this.slimeColumn.getAt(0).key);
+        let killedSlime = game.add.sprite(37, 1151, this.slimeColumn.getAt(0).key);
         // Et on supprime le slime
         this.slimeColumn.remove(this.slimeColumn.getAt(0));
         // On active le systeme de physique sur ce sprite
@@ -206,7 +205,7 @@ gameState.main.prototype = {
         killedSlime.x += killedSlime.width / 2;
         killedSlime.y += killedSlime.height / 2;
         
-        var angle = 0;
+        let angle = 0;
         // Si le personnage se trouve à gauche, on envoi le slime a droite
         if(this.oldmanPosition === 'left'){
             killedSlime.body.velocity.x = 1300;
@@ -229,17 +228,17 @@ gameState.main.prototype = {
         // On empèche un nouveau kill
         this.canKill = false;
         
-        var self = this;
+        let self = this;
         
         // Pour chaque slime encore présent, on ajoute une animation de chute
         // pour boucher le trou laissé par le slime tué
         this.slimeColumn.forEach(function (slime) {
-            var tween = game.add.tween(slime).to({y: slime.y + self.HEIGHT_SLIME_COLUMN}, 100, Phaser.Easing.Bounce.Out, true);
+            let tween = game.add.tween(slime).to({y: slime.y + self.HEIGHT_SLIME_COLUMN}, 100, Phaser.Easing.Bounce.Out, true);
             tween.onComplete.add(function () {
                 // Une fois que l'animation est finie, on redonne la possibilité de tué au héro
                 self.canKill = true;
             }, self);
-        })
+        });
         
     },
     
@@ -247,7 +246,7 @@ gameState.main.prototype = {
         this.currentScore++;
         
         // On kill chaque sprite qui compose le score
-        for(var j = 0; j < this.spritesScoreNumbers.length; j++){
+        for(let j = 0; j < this.spritesScoreNumbers.length; j++){
             this.spritesScoreNumbers[j].kill();
         }
         this.spritesScoreNumbers = [];
@@ -257,19 +256,19 @@ gameState.main.prototype = {
     
     createSpritesNumbers: function (number, imgRef, posY, alpha) {
         // On découpe le nombre en chiffre individuel
-        var digits = number.toString().split('');
-        var widthNumbers = 0;
+        let digits = number.toString().split('');
+        let widthNumbers = 0;
         
-        var arraySpritesNumbers = [];
+        let arraySpritesNumbers = [];
         
         // On met en forme le nombre avec les sprites
-        for(var i = 0; i < digits.length; i++){
-            var spaceBetweenNumbers = 0;
+        for(let i = 0; i < digits.length; i++){
+            let spaceBetweenNumbers = 0;
             if(i > 0){
                 spaceBetweenNumbers = 5;
             }
             
-            var spriteNumber = game.add.sprite(widthNumbers + spaceBetweenNumbers, posY, imgRef);
+            let spriteNumber = game.add.sprite(widthNumbers + spaceBetweenNumbers, posY, imgRef);
             spriteNumber.alpha = alpha;
             
             // On ajoute le JSON des nombres dans l'animation de "spriteNumber"
@@ -282,8 +281,8 @@ gameState.main.prototype = {
         }
         
         // On ajoute les sprites du score dans le groupe numbersGroup afin de centrer le tout
-        var numbersGroup = game.add.group();
-        for(var i = 0; i < arraySpritesNumbers.length; i++){
+        let numbersGroup = game.add.group();
+        for(let i = 0; i < arraySpritesNumbers.length; i++){
             numbersGroup.add(arraySpritesNumbers[i]);
         }
         // On centre horizontalement

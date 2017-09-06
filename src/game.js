@@ -35,7 +35,23 @@ gameState.load.prototype = {
         game.load.image('slime-base', 'assets/img/slime-base.png');
         
         // Chiffre pour le score
-        game.load.atlas('numbers', 'assets/img/numbers.png', 'assets/data/numbers.json');
+        game.load.atlas('score-numbers-font', 'assets/img/scoreFontNumbers.png', 'assets/data/numbers.json');
+        
+        // Chargement des niveaux
+        game.load.atlas('level-numbers-font', 'assets/img/levelFontNumbers.png', 'assets/data/numbers.json');
+        game.load.image('level-title', 'assets/img/levelTitle.png');
+        
+        // Chargement des images de gestion du temps
+        game.load.image('time-box', 'assets/img/time-box.png');
+        game.load.image('time-fill', 'assets/img/time-fill.png');
+        
+        // Chargement des effet audio
+        // coup de canne
+        game.load.audio('hit-sound', ['assets/audio/cut.ogg']);
+        // Musique
+        game.load.audio('background-music', ['assets/audio/adventure-meme.mp3']);
+        // Mort
+        game.load.audio('death-sound', ['assets/audio/death.ogg'])
     },
     create: function () {
         game.state.start('main');
@@ -81,16 +97,52 @@ gameState.main.prototype = {
         game.input.onDown.add(this.listener, this);
         
         // Score
-        this.currentScore = 0;
+        this.score = 0;
         // On crée le sprite du score
-        let spriteScoreNumber = game.add.sprite(game.width / 2, 440, 'numbers');
+        let scoreSprite = game.add.sprite(game.width / 2, 440, 'score-numbers-font');
         // On affiche le score à 0 en ajoutant le JSON "number" aux animations de spriteScoreNumber
-        spriteScoreNumber.animations.add('number');
-        spriteScoreNumber.animations.frame = this.currentScore;
+        scoreSprite.animations.add('numbers-animation');
+        scoreSprite.animations.frame = this.score;
         // On centre le score
-        spriteScoreNumber.x -= spriteScoreNumber.width / 2;
-        this.spritesScoreNumbers = [];
-        this.spritesScoreNumbers.push(spriteScoreNumber);
+        scoreSprite.x -= scoreSprite.width / 2;
+        this.scoreSprite = [];
+        this.scoreSprite.push(scoreSprite);
+        
+        // Niveaux
+        // Premier niveau
+        this.level = 1;
+        let levelPositionY = 290;
+        // Sprite du niveau
+        this.titleLevel = game.add.sprite(0, levelPositionY, 'level-title');
+        this.titleLevel.alpha = 0;
+        // Le sprite du numero du niveau
+        let numberLevel = game.add.sprite(0, levelPositionY, 'level-numbers-font');
+        numberLevel.alpha = 0;
+        // On change l'animation du sprite pour choisir le sprite du niveau actuel
+        numberLevel.animations.add('numbers-animation');
+        numberLevel.animations.frame = this.level;
+        this.numbersLevel = [];
+        this.numbersLevel.push(numberLevel);
+        
+        // Barre du temps
+        // Box
+        this.timeBox   = game.add.sprite(0, 100, 'time-box');
+        this.timeBox.x = game.width / 2 - this.timeBox.width / 2;
+        // Filling
+        this.timeFill   = game.add.sprite(0, 130, 'time-fill');
+        this.timeFill.x = game.width / 2 - this.timeFill.width / 2;
+        
+        this.timeFillWidth = (this.timeFill.width / 3) * 2;
+        this.timeFillFullWidth = this.timeFill.width;
+        
+        let rect = new Phaser.Rectangle(0, 0, this.timeFillWidth, this.timeFill.height);
+        this.timeFill.crop(rect);
+        this.timeFill.updateCrop();
+        
+        // Audio
+        this.hitSound = game.add.audio('hit-sound', 0.5);
+        this.backgroundMusic = game.add.audio('background-music', 0.3, true);
+        this.deathSound = game.add.audio('death-sound', 0.5);
     },
     update: function () {
         // Animations
@@ -101,6 +153,18 @@ gameState.main.prototype = {
                 this.listener('left');
             } else if(game.input.keyboard.isDown(Phaser.Keyboard.RIGHT)){
                 this.listener('right');
+            }
+        }
+        
+        // Si la partie a débuté,
+        if(GAME_START){
+            // Mise a jour de la barre de temps
+            if(this.timeFillWidth > 0){
+                // On diminue la barre de temps en fonction du niveau
+                this.timeFillWidth -= (0.6 + 0.1 * this.level);
+                let rect = new Phaser.Rectangle(0, 0, this.timeFillWidth, this.timeFill.height);
+                this.timeFill.crop(rect);
+                this.timeFill.updateCrop();
             }
         }
     },
@@ -152,6 +216,8 @@ gameState.main.prototype = {
             // La premiere action de l'utilisateur déclenche le début de la partie
             if(!GAME_START){
                 GAME_START = true;
+                // Activation de la musique de fond
+                this.backgroundMusic.play();
             }
             
             // On vérifie si l'action du joueur est un clic
@@ -188,6 +254,9 @@ gameState.main.prototype = {
     },
     
     killSlime: function () {
+        // On active le son de la hache
+        this.hitSound.play();
+        
         // On incrémente le score
         this.increaseScore();
         
@@ -243,52 +312,112 @@ gameState.main.prototype = {
     },
     
     increaseScore: function () {
-        this.currentScore++;
+        this.score++;
+        
+        // Le niveau augmente tous les 10 points
+        if(this.score % 10 === 0){
+            this.increaseLevel();
+        }
         
         // On kill chaque sprite qui compose le score
-        for(let j = 0; j < this.spritesScoreNumbers.length; j++){
-            this.spritesScoreNumbers[j].kill();
+        for(let j = 0; j < this.scoreSprite.length; j++){
+            this.scoreSprite[j].kill();
         }
-        this.spritesScoreNumbers = [];
+        this.scoreSprite = [];
         
-        this.spritesScoreNumbers = this.createSpritesNumbers(this.currentScore, 'numbers', 440, 1);
+        this.scoreSprite = this.buildNumbersSprites(this.score, 'score-numbers-font', 440, 1);
+        
+        // On ajoute du temps
+        if(this.timeFillWidth + 12 * 2 < this.timeFillFullWidth) {
+            this.timeFillWidth += 12 * 2;
+        } else {
+            this.timeFillWidth = this.timeFillFullWidth;
+        }
     },
     
-    createSpritesNumbers: function (number, imgRef, posY, alpha) {
+    increaseLevel: function () {
+        // On incremente le niveau
+        this.level++;
+    
+        // On tue chaque sprite des chiffres du niveau
+        for (let j = 0; j < this.numbersLevel.length; j++) {
+            this.numbersLevel[j].kill();
+        }
+    
+        this.numbersLevel = [];
+    
+        // On crée les sprites du niveau actuel
+        this.numbersLevel = this.buildNumbersSprites(this.level, 'level-numbers-font', this.titleLevel.y, 0);
+    
+        // Position du numero du niveau
+        this.titleLevel.x = 0;
+        for (let i = 0; i < this.numbersLevel.length; i++) {
+            if(i === 0) {
+                this.numbersLevel[i].x = this.titleLevel.width + 20;
+            } else {
+                this.numbersLevel[i].x = this.titleLevel.width + 20 + this.numbersLevel[i - 1].width;
+            }
+        }
+    
+        // Pour centrer le tout, on l'ajoute à un groupe
+        let levelGroup = game.add.group();
+        levelGroup.add(this.titleLevel);
+        for(let i = 0; i < this.numbersLevel.length; i++){
+            levelGroup.add(this.numbersLevel[i]);
+        }
+        levelGroup.x = game.width / 2 - levelGroup.width / 2;
+        
+        // On affiche le sprite level et le numero du niveau
+        for(let i = 0; i < this.numbersLevel.length; i++){
+            game.add.tween(this.numbersLevel[i]).to({alpha: 1}, 300, Phaser.Easing.Linear.None, true);
+        }
+        game.add.tween(this.titleLevel).to({alpha: 1}, 300, Phaser.Easing.Linear.None, true);
+        
+        // On fait disparaitre le tout au bout de 2 secondes
+        let self = this;
+        setTimeout(function () {
+            for(let i = 0; i < self.numbersLevel.length; i++){
+                game.add.tween(self.numbersLevel[i]).to({alpha: 0}, 300, Phaser.Easing.Linear.None, true);
+            }
+            game.add.tween(self.titleLevel).to({alpha: 0}, 300, Phaser.Easing.Linear.None, true);
+        }, 1500);
+    },
+    
+    buildNumbersSprites: function (number, imageReference, positionY, opacity) {
         // On découpe le nombre en chiffre individuel
         let digits = number.toString().split('');
-        let widthNumbers = 0;
+        let scoreWidth = 0;
         
-        let arraySpritesNumbers = [];
+        let sprites = [];
         
         // On met en forme le nombre avec les sprites
         for(let i = 0; i < digits.length; i++){
-            let spaceBetweenNumbers = 0;
+            let whitespace = 0;
             if(i > 0){
-                spaceBetweenNumbers = 5;
+                whitespace = 5;
             }
             
-            let spriteNumber = game.add.sprite(widthNumbers + spaceBetweenNumbers, posY, imgRef);
-            spriteNumber.alpha = alpha;
+            let sprite = game.add.sprite(scoreWidth + whitespace, positionY, imageReference);
+            sprite.alpha = opacity;
             
             // On ajoute le JSON des nombres dans l'animation de "spriteNumber"
-            spriteNumber.animations.add('number');
+            sprite.animations.add('numbers-animation');
             // On selectionne la frame n° "digits[i]" dans le JSON
-            spriteNumber.animations.frame = +digits[i];
-            arraySpritesNumbers.push(spriteNumber);
+            sprite.animations.frame = +digits[i];
+            sprites.push(sprite);
             // On calcul la width totale du sprite du score
-            widthNumbers += spriteNumber.width + spaceBetweenNumbers;
+            scoreWidth += sprite.width + whitespace;
         }
         
-        // On ajoute les sprites du score dans le groupe numbersGroup afin de centrer le tout
-        let numbersGroup = game.add.group();
-        for(let i = 0; i < arraySpritesNumbers.length; i++){
-            numbersGroup.add(arraySpritesNumbers[i]);
+        // On ajoute les sprites du score dans le groupe group afin de centrer le tout
+        let group = game.add.group();
+        for(let i = 0; i < sprites.length; i++){
+            group.add(sprites[i]);
         }
         // On centre horizontalement
-        numbersGroup.x = game.width / 2 - numbersGroup.width / 2;
+        group.x = game.width / 2 - group.width / 2;
         
-        return arraySpritesNumbers;
+        return sprites;
     }
 };
 

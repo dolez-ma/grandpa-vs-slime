@@ -140,9 +140,9 @@ gameState.main.prototype = {
         this.timeFill.updateCrop();
         
         // Audio
-        this.hitSound = game.add.audio('hit-sound', 0.5);
+        this.hitSound = game.add.audio('hit-sound', 0.4);
         this.backgroundMusic = game.add.audio('background-music', 0.3, true);
-        this.deathSound = game.add.audio('death-sound', 0.5);
+        this.deathSound = game.add.audio('death-sound', 0.4);
     },
     update: function () {
         // Animations
@@ -328,8 +328,8 @@ gameState.main.prototype = {
         this.scoreSprite = this.buildNumbersSprites(this.score, 'score-numbers-font', 440, 1);
         
         // On ajoute du temps
-        if(this.timeFillWidth + 12 * 2 < this.timeFillFullWidth) {
-            this.timeFillWidth += 12 * 2;
+        if(this.timeFillWidth + 16 * 2 < this.timeFillFullWidth) {
+            this.timeFillWidth += 16 * 2;
         } else {
             this.timeFillWidth = this.timeFillFullWidth;
         }

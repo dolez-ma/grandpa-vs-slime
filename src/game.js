@@ -45,13 +45,16 @@ gameState.load.prototype = {
         game.load.image('time-box', 'assets/img/time-box.png');
         game.load.image('time-fill', 'assets/img/time-fill.png');
         
+        // Mort
+        game.load.image('grave', 'assets/img/grave.png');
+        
         // Chargement des effet audio
         // coup de canne
         game.load.audio('hit-sound', ['assets/audio/cut.ogg']);
         // Musique
         game.load.audio('background-music', ['assets/audio/adventure-meme.mp3']);
         // Mort
-        game.load.audio('death-sound', ['assets/audio/death.ogg'])
+        game.load.audio('death-sound', ['assets/audio/death.ogg']);
     },
     create: function () {
         game.state.start('main');
@@ -161,10 +164,12 @@ gameState.main.prototype = {
             // Mise a jour de la barre de temps
             if(this.timeFillWidth > 0){
                 // On diminue la barre de temps en fonction du niveau
-                this.timeFillWidth -= (0.6 + 0.1 * this.level);
+                this.timeFillWidth -= (0.8 + 0.1 * this.level);
                 let rect = new Phaser.Rectangle(0, 0, this.timeFillWidth, this.timeFill.height);
                 this.timeFill.crop(rect);
                 this.timeFill.updateCrop();
+            } else {
+                this.death();
             }
         }
     },
@@ -239,17 +244,39 @@ gameState.main.prototype = {
                 this.oldman.x = game.width - Math.abs(this.oldman.width);
                 this.oldmanPosition = 'right';
             }
-            
-            // On stop l'animation "idle"
-            this.oldman.animations.stop('idle', true);
-            // On démarre l'animation "hit", une seule fois et avec 3 images par secondes
-            let animationKill = this.oldman.animations.play('hit', 15);
-            // Une fois l'animation finie, on reprend l'animation de respiration
-            animationKill.onComplete.add(function () {
-                this.oldman.animations.play('idle', 3, true);
-            }, this);
-            
-            this.killSlime();
+    
+            // Nom du slime a tuer
+            let slimeToKillName = this.slimeColumn.getAt(0).key;
+            // Nom du slime au dessus
+            let nextSlimeName = this.slimeColumn.getAt(1).key;
+    
+            // Si le personnage heurte une arme alors qu'il vient de changer de coté
+            if((slimeToKillName === 'slime-weapon1' && this.oldmanPosition === 'left') ||
+                (slimeToKillName === 'slime-weapon2' && this.oldmanPosition === 'right')) {
+                // Game Over
+                this.death();
+            }
+            // Si tout va bien, le personnage tue le slime
+            else {
+                // On stop l'animation "idle"
+                this.oldman.animations.stop('idle', true);
+                // On démarre l'animation "hit", une seule fois et avec 3 images par secondes
+                let animationKill = this.oldman.animations.play('hit', 15);
+                // Une fois l'animation finie, on reprend l'animation de respiration
+                animationKill.onComplete.add(function () {
+                    this.oldman.animations.play('idle', 3, true);
+                }, this);
+    
+                this.killSlime();
+                
+                // Une fois le slime tué, on vérifie si le slime suivant n'est pas armé, ce qui pourrait tuer le personnage
+                if((nextSlimeName === 'slime-weapon1' && this.oldmanPosition === 'left') ||
+                    (nextSlimeName === 'slime-weapon2' && this.oldmanPosition === 'right'))
+                {
+                    // game over
+                    this.death();
+                }
+            }
         }
     },
     
@@ -418,6 +445,42 @@ gameState.main.prototype = {
         group.x = game.width / 2 - group.width / 2;
         
         return sprites;
+    },
+    
+    death: function () {
+        // on joue le son de la mort
+        this.deathSound.play();
+        this.backgroundMusic.stop();
+        
+        // On empeche les action du joueur
+        GAME_START = false;
+        GAME_OVER = true;
+        this.canKill = false;
+        game.input.onDown.removeAll();
+        
+        let self = this;
+        // On fait disparaitre le personnage
+        let graveTween = game.add.tween(this.oldman).to({alpha:0}, 300, Phaser.Easing.Linear.None, true);
+        // Une fois la disparition complète
+        graveTween.onComplete.add(function () {
+            // On fait apparaitre la tombe à la place du personnage
+            self.grave = game.add.sprite(0, 0, 'grave');
+            self.grave.alpha = 0;
+            game.add.tween(self.grave).to({alpha: 1}, 300, Phaser.Easing.Linear.None, true);
+            self.grave.x = (self.oldmanPosition === 'left') ? (self.oldman.x + 50) : self.oldman.x + 200;
+            self.grave.y = self.oldman.y + self.oldman.height - self.grave.height;
+            // Apres 3 seconde, on fait appel à la fonction gameFinish
+            setTimeout(function () {
+                self.gameFinish()
+            }, 3000);
+        }, this);
+    },
+    
+    gameFinish: function () {
+        // On redemarre la partie
+        GAME_START = false;
+        GAME_OVER = false;
+        game.state.start('main');
     }
 };
 
